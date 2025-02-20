@@ -1,0 +1,23 @@
+﻿<Window x:Class="PingTool.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:PingTool"
+        xmlns:ScottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
+        mc:Ignorable="d"
+        Title="PingTool" Height="450" Width="800">
+    <Grid>
+        <Label Content="Host" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top"/>
+        <TextBox Name="hostTextBox" HorizontalAlignment="Left" Margin="50,14,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="120" Height="20"/>
+        <Button Content="Start" HorizontalAlignment="Left" Margin="175,14,0,0" VerticalAlignment="Top" Click="StartBtn_Click" Width="44"/>
+        <Button Content="Stop" HorizontalAlignment="Left" Margin="224,14,0,0" VerticalAlignment="Top" Click="StopBtn_Click" Width="44"/>
+        <ScottPlot:WpfPlot x:Name="Plot1" Margin="10,41,10,31"/>
+        <Label Content="Filter ≥" HorizontalAlignment="Left" Margin="337,10,0,0" VerticalAlignment="Top"/>
+        <TextBox x:Name="filterTextBox" HorizontalAlignment="Left" Margin="390,14,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="120" TextChanged="filterTextBox_TextChanged" Height="20"/>
+        <StatusBar VerticalAlignment="Bottom" Height="26" >
+            <TextBlock x:Name="statusTextBlock" TextWrapping="NoWrap" Text="Stopped" Margin="5 0 0 0"/>
+        </StatusBar>
+        <Button Content="Reset view" x:Name="ResetViewBtn" IsEnabled="False" HorizontalAlignment="Right" Margin="0,14,10,0" VerticalAlignment="Top" Width="70" Click="ResetViewBtnClick"/>
+    </Grid>
+</Window>
