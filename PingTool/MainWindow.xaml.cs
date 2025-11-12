@@ -1,10 +1,14 @@
-﻿using ScottPlot.Plottables;
-using ScottPlot.Statistics;
+﻿using ScottPlot;
 using ScottPlot.AxisRules;
+using ScottPlot.Plottables;
+using ScottPlot.Statistics;
+using ScottPlot.TickGenerators;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace PingTool
 {
@@ -13,7 +17,7 @@ namespace PingTool
     /// </summary>
     public partial class MainWindow : Window
     {
-        List<PingResult> PingResults = [];
+        List<PingResult> PingResults;
         bool isRunning = false;
         bool isUserInteract = false;
         int filter = 0;
@@ -21,29 +25,48 @@ namespace PingTool
         HistogramBars histPlot;
         Histogram hist;
 
+        Status status;
+
+        LogMinorTickGenerator minorTickGen = new();
+        NumericAutomatic tickGen = new();
+
         public MainWindow()
         {
             InitializeComponent();
             Plot1.Plot.YLabel("Count");
             Plot1.Plot.XLabel("Ping (ms)");
 
-            hist = Histogram.WithBinSize(2, 0, 100);
-            histPlot = Plot1.Plot.Add.Histogram(hist);
-            histPlot.BarWidthFraction = 0.8;
+            hostTextBox.Text = "192.168.0.1";
 
-            Plot1.Plot.Axes.Rules.Add(new LockedBottom(Plot1.Plot.Axes.Left, 0));
-            Plot1.Plot.Axes.Rules.Add(new LockedLeft(Plot1.Plot.Axes.Bottom, 0));
+            Init();
 
             Plot1.MouseWheel += Plot1_MouseWheel;
             Plot1.MouseDown += Plot1_MouseDown;
         }
 
-        private void Plot1_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void Init()
+        {
+            PingResults = [];
+            status = new();
+
+            Plot1.Plot.Clear();
+            hist = Histogram.WithBinSize(1, 0, 100);
+            histPlot = Plot1.Plot.Add.Histogram(hist);
+            histPlot.BarWidthFraction = 0.9;
+
+            Plot1.Plot.Axes.Rules.Add(new LockedBottom(Plot1.Plot.Axes.Left, 0));
+            Plot1.Plot.Axes.Rules.Add(new LockedLeft(Plot1.Plot.Axes.Bottom, 0));
+
+            Plot1.Refresh();
+            UserInteracted(false);
+        }
+
+        private void Plot1_MouseDown(object sender, MouseButtonEventArgs e)
         {
             UserInteracted(true);
         }
 
-        private void Plot1_MouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+        private void Plot1_MouseWheel(object sender, MouseWheelEventArgs e)
         {
             UserInteracted(true);
         }
@@ -58,14 +81,40 @@ namespace PingTool
                 return;
             }
             isRunning = true;
-            statusTextBlock.Text = "Starting";
+            status.StatusMessage = StatusMessages.Starting;
+            SetStatus();
             StartPing(host);
         }
 
         private void StopBtn_Click(object sender, RoutedEventArgs e)
         {
             isRunning = false;
-            statusTextBlock.Text = "Stopped";
+            status.StatusMessage = StatusMessages.Stopped;
+            SetStatus();
+        }
+
+        private void ResetBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var statusPrev = status.StatusMessage;
+            Init();
+            status.StatusMessage = statusPrev;
+            SetStatus();
+        }
+        private void ResetViewBtn_Click(object sender, RoutedEventArgs e)
+        {
+            UserInteracted(false);
+        }
+
+        private void filterTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (int.TryParse(filterTextBox.Text, out int flt))
+            {
+                filter = flt;
+            }
+            else
+            {
+                filter = 0;
+            }
         }
 
         private async void StartPing(string host)
@@ -89,14 +138,14 @@ namespace PingTool
                             var filtered = pings.Where(p => p >= filter);
                             Dispatcher.Invoke(() =>
                             {
-                                if (hist.Bins.Max() < filtered.Max())
+                                if (filtered.Any() && hist.Bins.Max() < filtered.Max())
                                 {
-                                    hist = Histogram.WithBinSize(2, filtered);
+                                    hist = Histogram.WithBinSize(1, filtered);
                                     Plot1.Plot.Clear();
                                     histPlot = Plot1.Plot.Add.Histogram(hist);
-                                    histPlot.BarWidthFraction = 0.8;
+                                    histPlot.BarWidthFraction = 0.9;
                                 }
-                                
+
                                 hist.Clear();
                                 hist.AddRange(filtered);
 
@@ -107,20 +156,10 @@ namespace PingTool
                                 
                                 Plot1.Refresh();
 
-                                statusTextBlock.Text = 
-                                $"Total: {pings.Count()} | " +
-                                $"Avg: {Math.Floor(pings.Average())} | " +
-                                $"Min: {pings.Min()} | " +
-                                $"Max: {pings.Max()}";
+                                status.Update(pings.Count(), Math.Floor(pings.Average()), pings.Min(), pings.Max(), StatusMessages.Running);
 
-                                if (filter > 0)
-                                {
-                                    statusTextBlock.Text +=
-                                    $"    |    Filtered: {filtered.Count()} | " +
-                                    $"Avg: {Math.Floor(filtered.Average())} | " +
-                                    $"Min: {filtered.Min()} | " +
-                                    $"Max: {filtered.Max()}";
-                                }
+                                status.Filtered = filter > 0 ? filtered.Count() : null;
+                                SetStatus();
                             });
                         }
                         else
@@ -134,30 +173,12 @@ namespace PingTool
                 {
                     Debug.WriteLine($"Error: {e.Message}");
                 }
-
             });
         }
 
-        private void filterTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        private void UserInteracted(bool flag)
         {
-            if (int.TryParse(filterTextBox.Text, out int flt))
-            {
-                filter = flt;
-            }
-            else
-            {
-                filter = 0;
-            }
-
-        }
-        private void ResetViewBtnClick(object sender, RoutedEventArgs e)
-        {
-            UserInteracted(false);
-        }
-
-        private void UserInteracted(bool status)
-        {
-            if (status)
+            if (flag)
             {
                 isUserInteract = true;
                 ResetViewBtn.IsEnabled = true;
@@ -169,6 +190,11 @@ namespace PingTool
                 Plot1.Plot.Axes.AutoScale();
                 Plot1.Refresh();
             }
+        }
+
+        private void SetStatus()
+        {
+            statusTextBlock.Text = status.ToString();
         }
     }
 
@@ -183,5 +209,47 @@ namespace PingTool
         }
         public PingResult(PingReply reply) : this(DateTime.Now, (int)reply.RoundtripTime)
         { }
+    }
+
+    class Status
+    {
+        public int Count { get; set; }
+        public double Avg { get; set; }
+        public double Min { get; set; }
+        public double Max { get; set; }
+        public int? Filtered { get; set; }
+        public StatusMessages StatusMessage { get; set; }
+
+        public void Update(int count, double avg, double min, double max, StatusMessages msg = StatusMessages.Running)
+        {
+            Count = count;
+            Avg = avg;
+            Min = min;
+            Max = max;
+            StatusMessage = msg;
+        }
+
+        public override string ToString()
+        {
+            StringBuilder sb = new();
+            sb.Append(StatusMessage.ToString());
+            if (Count > 0)
+            {
+                sb.Append($"   |   Total: {Count} | Avg: {Avg} | Min: {Min} | Max: {Max}");
+                if (Filtered.HasValue)
+                {
+                    sb.Append($"   |   Filtered: {Filtered.Value}");
+                }
+            }
+
+            return sb.ToString();
+        }
+    }
+
+    enum StatusMessages
+    {
+        Starting,
+        Stopped,
+        Running
     }
 }
