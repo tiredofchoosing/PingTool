@@ -8,17 +8,24 @@
         mc:Ignorable="d"
         Title="PingTool" Height="450" Width="800">
     <Grid>
-        <Label Content="Host" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top"/>
-        <TextBox Name="hostTextBox" HorizontalAlignment="Left" Margin="50,14,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="120" Height="20"/>
-        <Button Content="Start" HorizontalAlignment="Left" Margin="175,14,0,0" VerticalAlignment="Top" Click="StartBtn_Click" Width="44"/>
-        <Button Content="Stop" HorizontalAlignment="Left" Margin="224,14,0,0" VerticalAlignment="Top" Click="StopBtn_Click" Width="44"/>
-        <Button Content="Reset" HorizontalAlignment="Left" Margin="273,14,0,0" VerticalAlignment="Top" Click="ResetBtn_Click" Width="44"/>
-        <Label Content="Filter by value ≥" HorizontalAlignment="Left" Margin="373,10,0,0" VerticalAlignment="Top"/>
-        <TextBox x:Name="filterTextBox" HorizontalAlignment="Left" Margin="473,14,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="120" TextChanged="filterTextBox_TextChanged" Height="20"/>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Label Grid.Column="0" Content="Host" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top"/>
+            <TextBox Grid.Column="0" Name="hostTextBox" HorizontalAlignment="Left" Margin="50,14,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="120" Height="20"/>
+            <Button Grid.Column="0" Content="Start" Name="startBtn" HorizontalAlignment="Left" Margin="175,14,0,0" VerticalAlignment="Top" Click="StartBtn_Click" Width="44"/>
+            <Button Grid.Column="0" Content="Stop" Name="stopBtn" IsEnabled="False" HorizontalAlignment="Left" Margin="224,14,0,0" VerticalAlignment="Top" Click="StopBtn_Click" Width="44"/>
+            <Button Grid.Column="0" Content="Reset" HorizontalAlignment="Left" Margin="273,14,10,0" VerticalAlignment="Top" Click="ResetBtn_Click" Width="44"/>
+            <Label Grid.Column="1" Content="Filter by value ≥" HorizontalAlignment="Left" Margin="15,10,0,0" VerticalAlignment="Top"/>
+            <TextBox Grid.Column="1" x:Name="filterTextBox" HorizontalAlignment="Left" Margin="115,14,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="80" TextChanged="filterTextBox_TextChanged" Height="20"/>
+            <Button Grid.Column="2" Content="Reset view" x:Name="ResetViewBtn" IsEnabled="False" HorizontalAlignment="Right" Margin="10,14,10,0" VerticalAlignment="Top" Width="70" Click="ResetViewBtn_Click"/>
+        </Grid>
+        <ScottPlot:WpfPlot x:Name="Plot1" Margin="10,41,10,31"/>
         <StatusBar VerticalAlignment="Bottom" Height="26" >
             <TextBlock x:Name="statusTextBlock" TextWrapping="NoWrap" Text="Stopped" Margin="5 0 0 0"/>
         </StatusBar>
-        <Button Content="Reset view" x:Name="ResetViewBtn" IsEnabled="False" HorizontalAlignment="Right" Margin="0,14,10,0" VerticalAlignment="Top" Width="70" Click="ResetViewBtn_Click"/>
-        <ScottPlot:WpfPlot x:Name="Plot1" Margin="10,41,10,31"/>
     </Grid>
 </Window>

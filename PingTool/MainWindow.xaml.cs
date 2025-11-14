@@ -21,14 +21,13 @@ namespace PingTool
         bool isRunning = false;
         bool isUserInteract = false;
         int filter = 0;
+        string? prevHost = null;
+        readonly int initialPingRetry = 3;
 
         HistogramBars histPlot;
         Histogram hist;
 
         Status status;
-
-        LogMinorTickGenerator minorTickGen = new();
-        NumericAutomatic tickGen = new();
 
         public MainWindow()
         {
@@ -50,9 +49,9 @@ namespace PingTool
             status = new();
 
             Plot1.Plot.Clear();
-            hist = Histogram.WithBinSize(1, 0, 100);
+            hist = Histogram.WithBinSize(1, 0, 80);
             histPlot = Plot1.Plot.Add.Histogram(hist);
-            histPlot.BarWidthFraction = 0.9;
+            histPlot.BarWidthFraction = 0.8;
 
             Plot1.Plot.Axes.Rules.Add(new LockedBottom(Plot1.Plot.Axes.Left, 0));
             Plot1.Plot.Axes.Rules.Add(new LockedLeft(Plot1.Plot.Axes.Bottom, 0));
@@ -71,24 +70,65 @@ namespace PingTool
             UserInteracted(true);
         }
 
-        private void StartBtn_Click(object sender, RoutedEventArgs e)
+        private async void StartBtn_Click(object sender, RoutedEventArgs e)
         {
             if (isRunning) return;
 
+            startBtn.IsEnabled = false;
+
             var host = hostTextBox.Text;
-            if (string.IsNullOrWhiteSpace(host))
+            if (Uri.CheckHostName(host) == UriHostNameType.Unknown)
             {
+                status.StatusMessage = StatusMessages.HostError;
+                SetStatus();
                 return;
             }
-            isRunning = true;
+
             status.StatusMessage = StatusMessages.Starting;
             SetStatus();
+
+            var ping = new Ping();
+            PingReply reply = null;
+            int i = 0;
+            await Task.Run(() =>
+            {
+                try
+                {
+                    do
+                    {
+                        reply = ping.Send(host);
+                        if (reply.Status == IPStatus.Success)
+                            break;
+
+                        Task.Delay(500);
+                    }
+                    while (i++ < initialPingRetry);
+                }
+                catch { }
+            });
+
+            if (reply == null || reply.Status != IPStatus.Success)
+            {
+                status.StatusMessage = StatusMessages.PingError;
+                SetStatus();
+                return;
+            }
+
+            if (prevHost != null && prevHost != host)
+            {
+                Init();
+            }
+
+            isRunning = true;
+            stopBtn.IsEnabled = true;
+            prevHost = host;
             StartPing(host);
         }
 
         private void StopBtn_Click(object sender, RoutedEventArgs e)
         {
-            isRunning = false;
+            StopProcess();
+
             status.StatusMessage = StatusMessages.Stopped;
             SetStatus();
         }
@@ -143,7 +183,7 @@ namespace PingTool
                                     hist = Histogram.WithBinSize(1, filtered);
                                     Plot1.Plot.Clear();
                                     histPlot = Plot1.Plot.Add.Histogram(hist);
-                                    histPlot.BarWidthFraction = 0.9;
+                                    histPlot.BarWidthFraction = 0.8;
                                 }
 
                                 hist.Clear();
@@ -153,11 +193,14 @@ namespace PingTool
                                 {
                                     Plot1.Plot.Axes.AutoScale();
                                 }
-                                
+                                else
+                                {
+                                    // ToDo return zoom back or change from histogram to bars
+                                }
+
                                 Plot1.Refresh();
 
-                                status.Update(pings.Count(), Math.Floor(pings.Average()), pings.Min(), pings.Max(), StatusMessages.Running);
-
+                                status.Update(pings.Count(), Math.Floor(pings.Average()), pings.Min(), pings.Max(), pings.Median(), StatusMessages.Running);
                                 status.Filtered = filter > 0 ? filtered.Count() : null;
                                 SetStatus();
                             });
@@ -165,6 +208,12 @@ namespace PingTool
                         else
                         {
                             Debug.WriteLine($"Ping failed: {reply.Status}");
+                            status.Lost++;
+
+                            Dispatcher.Invoke(() =>
+                            {
+                                SetStatus();
+                            });
                         }
                         Task.Delay(1000).Wait();
                     }
@@ -172,8 +221,22 @@ namespace PingTool
                 catch (Exception e)
                 {
                     Debug.WriteLine($"Error: {e.Message}");
+
+                    status.StatusMessage = StatusMessages.PingError;
+                    Dispatcher.Invoke(() =>
+                    {
+                        StopProcess();
+                        SetStatus();
+                    });
                 }
             });
+        }
+
+        private void StopProcess()
+        {
+            isRunning = false;
+            stopBtn.IsEnabled = false;
+            startBtn.IsEnabled = true;
         }
 
         private void UserInteracted(bool flag)
@@ -196,60 +259,5 @@ namespace PingTool
         {
             statusTextBlock.Text = status.ToString();
         }
-    }
-
-    class PingResult
-    {
-        public DateTime DateTime { get; }
-        public int Value { get; }
-        public PingResult(DateTime dateTime, int value)
-        {
-            DateTime = dateTime;
-            Value = value;
-        }
-        public PingResult(PingReply reply) : this(DateTime.Now, (int)reply.RoundtripTime)
-        { }
-    }
-
-    class Status
-    {
-        public int Count { get; set; }
-        public double Avg { get; set; }
-        public double Min { get; set; }
-        public double Max { get; set; }
-        public int? Filtered { get; set; }
-        public StatusMessages StatusMessage { get; set; }
-
-        public void Update(int count, double avg, double min, double max, StatusMessages msg = StatusMessages.Running)
-        {
-            Count = count;
-            Avg = avg;
-            Min = min;
-            Max = max;
-            StatusMessage = msg;
-        }
-
-        public override string ToString()
-        {
-            StringBuilder sb = new();
-            sb.Append(StatusMessage.ToString());
-            if (Count > 0)
-            {
-                sb.Append($"   |   Total: {Count} | Avg: {Avg} | Min: {Min} | Max: {Max}");
-                if (Filtered.HasValue)
-                {
-                    sb.Append($"   |   Filtered: {Filtered.Value}");
-                }
-            }
-
-            return sb.ToString();
-        }
-    }
-
-    enum StatusMessages
-    {
-        Starting,
-        Stopped,
-        Running
     }
 }
